@@ -1,15 +1,16 @@
-FROM python:2.7-slim
+FROM debian:buster-slim AS build
 
-RUN useradd -m -u 999 appuser
+RUN apt-get update && \
+    apt-get install --no-install-suggests --no-install-recommends --yes python3-venv libpython3-dev && \
+    python3 -m venv /venv && \
+    /venv/bin/pip install --upgrade pip
 
+FROM build AS build-venv
+COPY requirements.txt /requirements.txt
+RUN /venv/bin/pip install --disable-pip-version-check -r /requirements.txt
+
+FROM gcr.io/distroless/python3-debian10
+COPY --from=build-venv /venv /venv
+COPY ./app /app
 WORKDIR /app
-
-COPY requirements.txt ./
-
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY ./app/ ./
-
-USER 999
-
-CMD ["python", "./main.py"]
+ENTRYPOINT ["/venv/bin/python3", "main.py"]
